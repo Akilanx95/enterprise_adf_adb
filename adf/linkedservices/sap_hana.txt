@@ -1,0 +1,23 @@
+{
+    "name": "ls_saphana_hp0",
+    "properties": {
+        "annotations": [
+            "sap_hana"
+        ],
+        "type": "SapHana",
+        "typeProperties": {
+            "connectionString": {
+                "type": "AzureKeyVaultSecret",
+                "store": {
+                    "referenceName": "ls_keyvault_hp0",
+                    "type": "LinkedServiceReference"
+                },
+                "secretName": "db-saphana-conn-adf"
+            }
+        },
+        "connectVia": {
+            "referenceName": "ir-saphana-onprem",
+            "type": "IntegrationRuntimeReference"
+        }
+    }
+}
