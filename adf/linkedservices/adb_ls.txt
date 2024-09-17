@@ -1,0 +1,33 @@
+{
+    "name": "ls_adb_workflows_hp0",
+    "properties": {
+        "parameters": {
+            "workspace_url": {
+                "type": "string",
+                "defaultValue": "https://adb-856416241315202.2.azuredatabricks.net"
+            }
+        },
+        "annotations": [],
+        "type": "AzureDatabricks",
+        "typeProperties": {
+            "domain": "@linkedService().workspace_url",
+            "authentication": "MSI",
+            "workspaceResourceId": "/subscriptions/a8a108f9-594a-4b3e-8d8e-241443d1b2d7/resourceGroups/rg_coty_brazil-eus2/providers/Microsoft.Databricks/workspaces/Coty_Brazil_DataCloud",
+            "newClusterNodeType": "Standard_DS3_v2",
+            "newClusterNumOfWorker": "1",
+            "newClusterSparkEnvVars": {
+                "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+            },
+            "newClusterCustomTags": {
+                "Cluster_Domain": "Supply Chain",
+                "Cluster_Subdomain": "Customer Service",
+                "Cluster_Owner": "Renato Pereira"
+            },
+            "newClusterVersion": "15.4.x-scala2.12",
+            "newClusterDriverNodeType": "Standard_DS3_v2",
+            "clusterOption": "Fixed",
+            "newClusterInitScripts": [],
+            "dataSecurityMode": "SINGLE_USER"
+        }
+    }
+}
