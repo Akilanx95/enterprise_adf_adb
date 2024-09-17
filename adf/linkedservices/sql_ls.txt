@@ -1,0 +1,24 @@
+{
+    "name": "ls_azsql_hp0",
+    "properties": {
+        "parameters": {
+            "sql_server_url": {
+                "type": "string",
+                "defaultValue": "usmsantdb055p.database.windows.net"
+            },
+            "database_name": {
+                "type": "string",
+                "defaultValue": "SCM_CT_Dev_sql_01"
+            }
+        },
+        "annotations": [],
+        "type": "AzureSqlDatabase",
+        "typeProperties": {
+            "server": "@{linkedService().sql_server_url}",
+            "database": "@{linkedService().database_name}",
+            "encrypt": "mandatory",
+            "trustServerCertificate": false,
+            "authenticationType": "SystemAssignedManagedIdentity"
+        }
+    }
+}
