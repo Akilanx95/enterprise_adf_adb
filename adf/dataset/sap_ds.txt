@@ -1,0 +1,15 @@
+{
+    "name": "ds_sap_src_sap_hana",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "ls_saphana_hp0",
+            "type": "LinkedServiceReference"
+        },
+        "folder": {
+            "name": "cotybrdatalake"
+        },
+        "annotations": [],
+        "type": "SapHanaTable",
+        "schema": []
+    }
+}
