@@ -1,0 +1,35 @@
+{
+    "name": "ds_sap_src_meta_sqldb",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "ls_azsql_hp0",
+            "type": "LinkedServiceReference",
+            "parameters": {
+                "sql_server_url": {
+                    "value": "@dataset().sql_server_url",
+                    "type": "Expression"
+                },
+                "database_name": {
+                    "value": "@dataset().database_name",
+                    "type": "Expression"
+                }
+            }
+        },
+        "parameters": {
+            "sql_server_url": {
+                "type": "string"
+            },
+            "database_name": {
+                "type": "string"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake"
+        },
+        "annotations": [
+            "metadata_sqldb"
+        ],
+        "type": "AzureSqlTable",
+        "schema": []
+    }
+}
