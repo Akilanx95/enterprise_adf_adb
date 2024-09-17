@@ -1,0 +1,35 @@
+{
+    "name": "ds_sap_src_sqldb",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "ls_azsql_hp0",
+            "type": "LinkedServiceReference",
+            "parameters": {
+                "sql_server_url": "usmsantdb055p.database.windows.net",
+                "database_name": "SCM_CT_Dev_sql_01"
+            }
+        },
+        "parameters": {
+            "sql_server_url": {
+                "type": "string"
+            },
+            "database_name": {
+                "type": "string"
+            },
+            "user_name": {
+                "type": "string"
+            },
+            "sercret_name": {
+                "type": "string"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake"
+        },
+        "annotations": [
+            "sap_sqldb"
+        ],
+        "type": "AzureSqlTable",
+        "schema": []
+    }
+}
