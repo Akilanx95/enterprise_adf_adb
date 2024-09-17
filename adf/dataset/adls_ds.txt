@@ -1,0 +1,55 @@
+{
+    "name": "ds_sap_dest_adls_parquet",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "ls_adls_hp0",
+            "type": "LinkedServiceReference",
+            "parameters": {
+                "storage_account_url": {
+                    "value": "@dataset().storage_account_url",
+                    "type": "Expression"
+                }
+            }
+        },
+        "parameters": {
+            "storage_account_url": {
+                "type": "string"
+            },
+            "container_name": {
+                "type": "string"
+            },
+            "file_name": {
+                "type": "string"
+            },
+            "folder_name": {
+                "type": "string"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake"
+        },
+        "annotations": [
+            "landing_adls"
+        ],
+        "type": "Parquet",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "fileName": {
+                    "value": "@dataset().file_name",
+                    "type": "Expression"
+                },
+                "folderPath": {
+                    "value": "@dataset().folder_name",
+                    "type": "Expression"
+                },
+                "fileSystem": {
+                    "value": "@dataset().container_name",
+                    "type": "Expression"
+                }
+            },
+            "compressionCodec": "snappy"
+        },
+        "schema": []
+    }
+}
