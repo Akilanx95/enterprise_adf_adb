@@ -1,0 +1,4 @@
+app_id,app_name,app_type,app_property,is_active_flag,created_time,updated_time,createdby,updatedby
+1,landing,ADF,-1,1,2024-08-27 09:30:47.040,2024-08-27 09:30:47.040,Akshay_Kudale-TGR@cotyinc.com,Akshay_Kudale-TGR@cotyinc.com
+2,raw,ADB,"{""Notebook_path"": ""/Workspace/Repos/COTY-CONTROL-TOWER/coty-data-lake/adb/coty_development_notebooks/bronze/Bronze_Master""}",1,2024-08-27 09:30:47.040,2024-08-27 09:30:47.040,Akshay_Kudale-TGR@cotyinc.com,Akshay_Kudale-TGR@cotyinc.com
+3,silver,ADB,"{""Notebook_path"": ""/Workspace/Shared/coty_development_notebooks/silver/Silver_Master""}",1,2024-09-05 07:52:56.683,2024-09-05 07:52:56.683,Suneel_Muddarla-TGR@cotyinc.com,Suneel_Muddarla-TGR@cotyinc.com
