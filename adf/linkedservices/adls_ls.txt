@@ -1,0 +1,16 @@
+{
+    "name": "ls_adls_hp0",
+    "properties": {
+        "parameters": {
+            "storage_account_url": {
+                "type": "string",
+                "defaultValue": "https://cotybrazil.dfs.core.windows.net/"
+            }
+        },
+        "annotations": [],
+        "type": "AzureBlobFS",
+        "typeProperties": {
+            "url": "@{linkedService().storage_account_url}"
+        }
+    }
+}
