@@ -1,0 +1,238 @@
+Slide 1: Title Slide
+Title: Enterprise Data Integration with Azure ADF & Databricks
+Subtitle: A comprehensive data processing solution using Azure Data Factory and Databricks
+Your Name/Organization
+Date
+
+Slide 2: Project Overview
+Objective: Build an enterprise-level data integration pipeline leveraging Azure tools to transform, manage, and analyze large datasets.
+Tools Used:
+- Azure Data Factory (ADF)
+- Azure Databricks (ADB)
+- Azure Data Lake Storage (ADLS)
+- SQL Server, SAP HANA
+
+Slide 3: Architecture Overview
+Title: Data Processing Architecture
+Diagram: Showcase a simple flow diagram of how data moves from various sources (ADLS, SQL Server, SAP HANA) through ADF, into Databricks, and is processed through bronze, silver, and gold layers.
+
+Slide 4: Bronze Layer
+Title: Bronze Layer (Raw Data Ingestion)
+Key Points:
+- Captures raw data from various sources.
+- Ensures data is ingested as-is for further processing.
+- Utilizes Databricks notebooks for orchestrating ingestion.
+
+Slide 5: Silver Layer
+Title: Silver Layer (Refined Data)
+Key Points:
+- Data cleaning and transformation happen here.
+- Refined data is prepared for analytics and reporting.
+- Efficient parallel pipelines using ADF ensure timely processing.
+
+Slide 6: Dynamic Metadata Framework
+Title: Dynamic Metadata Management
+Key Points:
+- SQL-based framework to handle metadata-driven configurations.
+- Facilitates flexibility in data processing and reduces hardcoding.
+- Essential for managing table schemas, data transformation rules, etc.
+
+Slide 7: Audit & Logging Mechanism
+Title: Audit & Logging Framework
+Key Points:
+- SQL Stored Procedures handle logging of data processing.
+- Keeps track of task execution, errors, and data states.
+- Provides transparency and traceability for the entire pipeline.
+
+Slide 8: Key Components
+Title: Project Components
+List:
+- Notebooks: For orchestrating ETL processes.
+- ARM Templates: Infrastructure as code for Azure resources.
+- SQL Scripts: Functions, procedures, and DDLs to manage metadata.
+- ADF Pipelines: Parallel execution for high-performance data processing.
+
+Slide 9: Results and Benefits
+Title: Results & Benefits
+Key Points:
+- Scalable and efficient data processing architecture.
+- Real-time analytics enabled through parallel pipelines.
+- Dynamic configuration ensures maintainability and flexibility.
+
+Slide 10: Conclusion
+Title: Conclusion & Next Steps
+Key Points:
+- Azure ADF and Databricks provide a powerful combination for enterprise-scale data solutions.
+- Future improvements: Implementing additional optimizations in data processing.
+
+-------------------------------------------------------------------------------------------------------
+
+Slide 1: Title Slide
+Graphic Designer Input:
+
+Design a clean, professional title slide.
+Include a background image representing cloud computing or data integration.
+Text elements:
+- Title: Enterprise Data Integration with Azure ADF & Databricks
+- Subtitle: A comprehensive data processing solution using Azure Data Factory and Databricks.
+- Include space for the presenter's name and the date.
+
+
+Slide 2: Project Overview
+Graphic Designer Input:
+
+Use a flowchart or icon-based representation for Azure Data Factory, Databricks, ADLS, SQL Server, SAP HANA.
+Icons or images for cloud services, data integration, and transformation.
+Make it visually clean with key technology names listed under corresponding icons.
+
+
+Slide 3: Architecture Overview
+Graphic Designer Input:
+
+Create a simple flow diagram of a medallion architecture (Bronze, Silver, Gold layers).
+- Bronze: Daily data with timestamps.
+- Silver: Data refined to mimic the source system.
+- Gold: Aggregated tables created by the client.
+Show data sources (ADLS, SAP HANA, SQL) feeding into ADF and Databricks, with arrows showing how data moves through the layers.
+
+
+Slide 4: Bronze Layer
+Graphic Designer Input:
+
+Show a process box labeled "Bronze Layer" with arrows indicating data ingestion.
+Illustrate that data is captured as-is from various sources.
+Include a simple table-like graphic showing sample data with timestamps to represent daily data ingestion.
+
+
+Slide 5: Silver Layer
+Graphic Designer Input:
+
+Visualize the transformation of data in the silver layer.
+Mimic the source system in a table or system diagram with clean data (e.g., structured fields, fewer null values).
+Use an arrow showing data progressing from the bronze to the silver layer.
+Add icons or visual elements for data refinement/cleansing.
+
+
+Slide 6: Dynamic Metadata Framework
+Graphic Designer Input:
+
+Illustrate a framework or architecture that dynamically configures data processing.
+Include elements like database tables, configurations (e.g., a file or settings icon), and automation symbols.
+Add labels to indicate flexibility, dynamic configurations, and scalability.
+
+
+Slide 7: Audit & Logging Mechanism
+Graphic Designer Input:
+
+Show a logbook or database icons representing audit logs and tracking.
+Arrows representing the flow of data into audit tables (e.g., InsertAuditLog).
+Icons showing monitoring, tracking, and reporting.
+Use a simple but clean layout to represent transparency in the data process.
+
+
+Slide 8: Key Components
+Graphic Designer Input:
+
+Use icons for each key component:
+- Notebooks (a notebook icon),
+- ARM Templates (a cloud template icon),
+- SQL Scripts (script or code icon),
+Pipelines (pipeline or flowchart icon).
+Arrange these elements in a grid or circular pattern, with short descriptions underneath.
+
+
+Slide 9: Results and Benefits
+Graphic Designer Input:
+
+A summary visual of the architecture, from data ingestion to aggregation, with performance indicators.
+Use checkmarks, progress bars, and clean graphs/icons to represent scalability, real-time analytics, and flexibility.
+Show some results visually (e.g., graphs or dashboards representing business insights).
+
+
+Slide 10: Conclusion
+Graphic Designer Input:
+
+Keep the slide simple and clean, with an arrow-based flowchart summarizing the architecture from bronze to gold.
+Use icons for each layer and summarize key points in text.
+
+
+-------------------------------------------------------------------------------------------------------Slide 1: Title Slide
+Speaker Notes:
+
+"Welcome, and thank you for joining. Today, I’ll be walking you through our enterprise-level data integration solution using Azure Data Factory and Databricks. This architecture ensures efficient data management and scalability for large datasets in the cloud."
+"We’ll explore how the medallion architecture is used to transform raw data into refined and aggregated insights."
+
+
+Slide 2: Project Overview
+Speaker Notes:
+
+"This project is centered around building a scalable data pipeline using Azure Data Factory for orchestration and Databricks for processing."
+"We’re using Azure Data Lake Storage for storing raw data, and leveraging external sources like SQL Server and SAP HANA."
+"The goal is to automate data integration, ensuring the data is ingested, refined, and available for analytics at scale."
+
+
+Slide 3: Architecture Overview
+Speaker Notes:
+
+"This slide gives an overview of our medallion architecture, which organizes data into three layers: bronze, silver, and gold."
+"Data flows from various sources like ADLS, SQL Server, and SAP HANA through Azure Data Factory and is processed in Databricks."
+"In the bronze layer, we capture daily data with timestamps, while in the silver layer, data is refined to mimic the source system. The gold layer is where the client can aggregate and analyze data as needed."
+
+
+Slide 4: Bronze Layer
+Speaker Notes:
+
+"The bronze layer is the first stage where raw data is ingested from multiple sources."
+"We’re bringing in data as-is, without much processing, ensuring that it captures the full history with timestamps. This is crucial because it allows us to retain the raw form of data for auditing and detailed analysis later on."
+
+
+Slide 5: Silver Layer
+Speaker Notes:
+
+"The silver layer represents the refinement of raw data into a clean, structured form. Here, we filter, clean, and transform data so it mirrors the original source system."
+"This layer prepares data for use by downstream processes, removing any redundancies or unnecessary data fields. The goal is to ensure data consistency and reliability for analysis."
+
+
+Slide 6: Dynamic Metadata Framework
+Speaker Notes:
+
+"One key feature of our architecture is the dynamic metadata framework. This framework allows us to manage data processing configurations flexibly, without hardcoding paths or table names."
+"We use SQL-based metadata that dictates how the pipelines operate, ensuring scalability and adaptability as the system grows or changes."
+
+
+Slide 7: Audit & Logging Mechanism
+Speaker Notes:
+
+"To ensure transparency and traceability, we’ve implemented a robust audit and logging mechanism."
+"Every data processing task is logged, and these logs allow us to track performance, detect errors, and ensure that all processes are running smoothly."
+"This is especially important for compliance and auditing, as it provides a complete record of data operations."
+
+
+Slide 8: Key Components
+Speaker Notes:
+
+"Here’s a quick look at the main components of our solution. We’re using Databricks notebooks to orchestrate ETL processes, ARM templates to automate the deployment of resources, SQL scripts for managing metadata and logging, and ADF pipelines for orchestrating data flow."
+"Each of these components works together to ensure that the system is robust, scalable, and easy to manage."
+
+
+Slide 9: Results and Benefits
+Speaker Notes:
+
+"The architecture we’ve built provides several key benefits: scalability, flexibility, and real-time analytics."
+"By leveraging parallel pipelines in ADF and using Databricks for high-performance data transformations, we’re able to handle large volumes of data efficiently."
+"The client has the ability to create aggregated tables in the gold layer, allowing them to extract insights tailored to their needs."
+
+
+Slide 10: Conclusion
+Speaker Notes:
+
+"In conclusion, this solution showcases the power of combining Azure Data Factory and Databricks for enterprise-level data integration."
+"By following the medallion architecture, we ensure that raw data is retained, refined, and made available for analysis in a scalable and maintainable way."
+"This architecture can evolve with changing business needs, making it a future-proof solution for large-scale data processing."
+
+
+Slide 11: Thank You
+Speaker Notes:
+
+"Thank you for your time today. I hope this presentation gave you a good overview of how we’ve implemented a scalable data integration solution with Azure tools."
+"I’m happy to take any questions or provide more details if needed."
