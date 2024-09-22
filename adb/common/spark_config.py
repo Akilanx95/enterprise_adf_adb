@@ -30,8 +30,6 @@ spark.conf.set("spark.sql.parquet.enableVectorizedReader", "true")
 # Larger Parquet block sizes can improve read throughput by reducing the number of I/O operations
 spark.conf.set("parquet.block.size", 268435456)  # 256 MB
 
-# Controls the maximum number of bytes to pack into a single partition when reading files
-spark.conf.set("spark.sql.files.maxPartitionBytes", 134217728)  # 128 MB
 
 # Adjusting the number of shuffle partitions can help balance the workload across the cluster. Set this based on the number of cores in your cluster. Set this value to 2–4 times the total number of cores in your cluster. 
 spark.conf.set("spark.sql.shuffle.partitions", "200")
@@ -71,7 +69,13 @@ spark.conf.set("spark.sql.parquet.columnarReaderBatchSize", "8192")
 # Improves performance when dealing with a large number of files
 spark.conf.set("spark.sql.sources.parallelPartitionDiscovery.threshold", "32")
 
+# Set the desired file size to 256 MB
+spark.conf.set("spark.sql.files.maxRecordsPerFile", 10000000)  # Adjust this based on your record size
+spark.conf.set("spark.sql.parquet.blockSize", 256 * 1024 * 1024)  # 256 MB
+spark.conf.set("spark.sql.parquet.targetRowGroupSize", 256 * 1024 * 1024)  # 256 MB
 
+# Controls the maximum number of bytes to pack into a single partition when reading files
+spark.conf.set("spark.sql.files.maxPartitionBytes", 134217728)  # 128 MB
 spark.conf.set('spark.sql.files.maxPartitionBytes','512m')
 
 # Enables optimizations that reduce the amount of data read during queries
