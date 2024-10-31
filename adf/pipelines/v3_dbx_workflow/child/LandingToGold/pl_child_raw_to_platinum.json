@@ -1,0 +1,172 @@
+{
+    "name": "pl_child_raw_to_platinum",
+    "properties": {
+        "activities": [
+            {
+                "name": "raw_to_platinum",
+                "type": "WebActivity",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "POST",
+                    "url": {
+                        "value": "@concat('https://',pipeline().parameters.DatabricksWorkspaceID,'.azuredatabricks.net/api/2.1/jobs/run-now')",
+                        "type": "Expression"
+                    },
+                    "body": {
+                        "value": "@json(concat('{\n  \"job_id\": ', pipeline().parameters.JobID, ',\n  \"job_parameters\": {\n    \"project_id\": \"',pipeline().parameters.project_id, '\",\n    \"reload_flag\": \"',pipeline().parameters.reload_flag, '\",\n    \"reload_tables\": \"',pipeline().parameters.reload_tables, '\",\n    \"data_layer\": \"',pipeline().parameters.data_layer, '\",\n    \"pipelineurl\": \"','https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory, '\",\n    \"gold_include_tables\": \"',pipeline().parameters.gold_include_tables, '\",\n    \"platinum_include_tables\": \"',pipeline().parameters.platinum_include_tables, '\"\n  }\n}'))",
+                        "type": "Expression"
+                    },
+                    "authentication": {
+                        "type": "MSI",
+                        "resource": "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+                    }
+                }
+            },
+            {
+                "name": "until_raw_to_silver_complete",
+                "type": "Until",
+                "dependsOn": [
+                    {
+                        "activity": "raw_to_platinum",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@not(equals(variables('JobStatus'),'Running'))",
+                        "type": "Expression"
+                    },
+                    "activities": [
+                        {
+                            "name": "Check Job Run API",
+                            "type": "WebActivity",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "method": "GET",
+                                "url": {
+                                    "value": "@concat('https://',pipeline().parameters.DatabricksWorkspaceID,'.azuredatabricks.net/api/2.1/jobs/runs/get?run_id=',activity('raw_to_platinum').output.run_id)\n",
+                                    "type": "Expression"
+                                },
+                                "authentication": {
+                                    "type": "MSI",
+                                    "resource": "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set Job Status",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "Check Job Run API",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "JobStatus",
+                                "value": {
+                                    "value": "@if(\nor(\nequals(activity('Check Job Run API').output.state.life_cycle_state, 'PENDING'), equals(activity('Check Job Run API').output.state.life_cycle_state, 'RUNNING')\n),\n'Running',\nactivity('Check Job Run API').output.state.result_state\n)",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Wait to recheck API",
+                            "type": "Wait",
+                            "dependsOn": [
+                                {
+                                    "activity": "Set Job Status",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "waitTimeInSeconds": {
+                                    "value": "@pipeline().parameters.waitTimeInSeconds",
+                                    "type": "Expression"
+                                }
+                            }
+                        }
+                    ],
+                    "timeout": "0.12:00:00"
+                }
+            }
+        ],
+        "parameters": {
+            "JobID": {
+                "type": "string",
+                "defaultValue": "964061497823899"
+            },
+            "DatabricksWorkspaceID": {
+                "type": "string",
+                "defaultValue": "adb-856416241315202.2"
+            },
+            "project_id": {
+                "type": "string",
+                "defaultValue": "1"
+            },
+            "reload_flag": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "reload_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "data_layer": {
+                "type": "string",
+                "defaultValue": "all"
+            },
+            "waitTimeInSeconds": {
+                "type": "int",
+                "defaultValue": 60
+            },
+            "gold_include_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "platinum_include_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            }
+        },
+        "variables": {
+            "JobStatus": {
+                "type": "String",
+                "defaultValue": "Running"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake/data_ingestion"
+        },
+        "annotations": []
+    }
+}
