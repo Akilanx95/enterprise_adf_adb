@@ -1,0 +1,120 @@
+{
+    "name": "pl_parent_source_to_landing",
+    "properties": {
+        "activities": [
+            {
+                "name": "BatchID_Lookup",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT DISTINCT batch_id\nFROM fwk_meta.GetMetadataDetails(@{pipeline().parameters.ModuleID})\nORDER BY batch_id",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_sap_src_meta_sqldb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "sql_server_url": {
+                                "value": "@pipeline().globalParameters.sql_server_url",
+                                "type": "Expression"
+                            },
+                            "database_name": {
+                                "value": "@pipeline().globalParameters.sql_server_database_name",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEachBatch",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "BatchID_Lookup",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('BatchID_Lookup').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "landing_master",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "pl_child_source_to_landing",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ModuleID": 1,
+                                    "batch_id": {
+                                        "value": "@item().batch_id",
+                                        "type": "Expression"
+                                    },
+                                    "reload_tables": {
+                                        "value": "@pipeline().parameters.reload_tables",
+                                        "type": "Expression"
+                                    },
+                                    "reload_flag": {
+                                        "value": "@pipeline().parameters.reload_flag",
+                                        "type": "Expression"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "moduleid": {
+                "type": "string",
+                "defaultValue": "1"
+            },
+            "reload_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "reload_flag": {
+                "type": "string",
+                "defaultValue": "no"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake/data_ingestion"
+        },
+        "annotations": [
+            "landing"
+        ],
+        "lastPublishTime": "2024-08-21T10:56:28Z"
+    }
+}
