@@ -1,0 +1,562 @@
+{
+    "name": "pl_child_bronze_to_silver",
+    "properties": {
+        "activities": [
+            {
+                "name": "GetMetadataDetails",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "@if(\n    equals(toLower(pipeline().parameters.reload_flag), 'no'),\n    concat('SELECT * FROM fwk_meta.GetMetadataDetails(', \n           string(pipeline().parameters.ModuleID), \n           ')'),\n\tif(\n\tequals(toLower(pipeline().parameters.reload_flag), 'yes'),\n    concat('SELECT * FROM fwk_meta.GetMetadataDetails(', \n           string(pipeline().parameters.ModuleID), \n           ') WHERE source_object IN (', \n           string(pipeline().parameters.reload_tables), \n           ')'),\n\t\t'Invalid reload_flag value'\n\t)\n)",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_sap_src_meta_sqldb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "sql_server_url": {
+                                "value": "@pipeline().globalParameters.sql_server_url",
+                                "type": "Expression"
+                            },
+                            "database_name": {
+                                "value": "@pipeline().globalParameters.sql_server_database_name",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "InsertModuleAuditLog",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "GetMetadataDetails",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderStoredProcedureName": "[fwk_meta].[InsertModuleAuditLog]",
+                        "storedProcedureParameters": {
+                            "data_layer": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@activity('GetMetadataDetails').output.value[0].data_layer",
+                                    "type": "Expression"
+                                }
+                            },
+                            "moduleid": {
+                                "type": "Int32",
+                                "value": {
+                                    "value": "@activity('GetMetadataDetails').output.value[0].moduleid",
+                                    "type": "Expression"
+                                }
+                            },
+                            "start_time": {
+                                "type": "DateTime",
+                                "value": {
+                                    "value": "@utcnow()",
+                                    "type": "Expression"
+                                }
+                            },
+                            "invalid_tables": {
+                                "type": "Int32",
+                                "value": "0"
+                            },
+                            "pipelineurl": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                    "type": "Expression"
+                                }
+                            },
+                            "reload_flag": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.reload_flag",
+                                    "type": "Expression"
+                                }
+                            },
+                            "reload_tables": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.reload_tables",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_sap_src_meta_sqldb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "sql_server_url": {
+                                "value": "@pipeline().globalParameters.sql_server_url",
+                                "type": "Expression"
+                            },
+                            "database_name": {
+                                "value": "@pipeline().globalParameters.sql_server_database_name",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "UpdateModuleAuditLog_Success",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "Silver_Master",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[UpdateModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "end_time": {
+                            "value": {
+                                "value": "@utcnow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "ErrorCode": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "ErrorDesc": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "module_audit_id": {
+                            "value": {
+                                "value": "@activity('InsertModuleAuditLog').output.value[0].module_audit_id",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "status": {
+                            "value": "success",
+                            "type": "String"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@activity('Silver_Master').output.runPageUrl",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@pipeline().globalParameters.sql_server_url",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "UpdateModuleAuditLog_Failure",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "Silver_Master",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[UpdateModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "end_time": {
+                            "value": {
+                                "value": "@utcnow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "ErrorCode": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "ErrorDesc": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "module_audit_id": {
+                            "value": {
+                                "value": "@activity('InsertModuleAuditLog').output.value[0].module_audit_id",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "status": {
+                            "value": "failed",
+                            "type": "String"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@activity('GetMetadataDetails').output.runPageUrl",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@pipeline().globalParameters.sql_server_url",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "Silver_Master",
+                "type": "DatabricksNotebook",
+                "dependsOn": [
+                    {
+                        "activity": "InsertModuleAuditLog",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [
+                    {
+                        "name": "module_audit_id",
+                        "value": "@string(activity('InsertModuleAuditLog').output.value[0].module_audit_id)"
+                    }
+                ],
+                "typeProperties": {
+                    "notebookPath": {
+                        "value": "@json(activity('GetMetadataDetails').output.value[0].app_property)['Notebook_path']",
+                        "type": "Expression"
+                    },
+                    "baseParameters": {
+                        "module_ID": {
+                            "value": "@string(activity('GetMetadataDetails').output.value[0].moduleid)",
+                            "type": "Expression"
+                        },
+                        "module_audit_id": {
+                            "value": "@string(activity('InsertModuleAuditLog').output.value[0].module_audit_id)\n",
+                            "type": "Expression"
+                        },
+                        "reload_tables": {
+                            "value": "@pipeline().parameters.reload_tables",
+                            "type": "Expression"
+                        },
+                        "reload_flag": {
+                            "value": "@pipeline().parameters.reload_flag",
+                            "type": "Expression"
+                        }
+                    },
+                    "libraries": [
+                        {
+                            "pypi": {
+                                "package": "adal"
+                            }
+                        },
+                        {
+                            "maven": {
+                                "coordinates": "com.microsoft.azure:spark-mssql-connector_2.12:1.2.0"
+                            }
+                        }
+                    ]
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_adb_workflows_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "workspace_url": "https://adb-856416241315202.2.azuredatabricks.net"
+                    }
+                }
+            },
+            {
+                "name": "InsertModuleAuditLogFailure",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "GetMetadataDetails",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[InsertModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "data_layer": {
+                            "value": "silver",
+                            "type": "String"
+                        },
+                        "invalid_tables": {
+                            "value": "1",
+                            "type": "Int32"
+                        },
+                        "moduleid": {
+                            "value": {
+                                "value": "@pipeline().parameters.ModuleID",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "start_time": {
+                            "value": {
+                                "value": "@utcNow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@pipeline().globalParameters.sql_server_url",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "InsertModuleAuditLogFailure1",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "InsertModuleAuditLog",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[InsertModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "data_layer": {
+                            "value": "silver",
+                            "type": "String"
+                        },
+                        "invalid_tables": {
+                            "value": "1",
+                            "type": "Int32"
+                        },
+                        "moduleid": {
+                            "value": {
+                                "value": "@pipeline().parameters.ModuleID",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "start_time": {
+                            "value": {
+                                "value": "@utcNow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@pipeline().globalParameters.sql_server_url",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "ModuleID": {
+                "type": "string",
+                "defaultValue": "3"
+            },
+            "reload_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "reload_flag": {
+                "type": "string",
+                "defaultValue": "no"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake/data_ingestion"
+        },
+        "annotations": [
+            "silver"
+        ],
+        "lastPublishTime": "2024-08-26T08:26:15Z"
+    }
+}
