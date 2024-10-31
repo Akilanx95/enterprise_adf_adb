@@ -1,0 +1,1023 @@
+{
+    "name": "pl_child_source_to_landing",
+    "properties": {
+        "activities": [
+            {
+                "name": "GetMetadataDetails",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "@if(\n    equals(toLower(pipeline().parameters.reload_flag), 'no'),\n    concat('SELECT * FROM fwk_meta.GetMetadataDetails(', \n           string(pipeline().parameters.ModuleID), \n           ') WHERE batch_id = ', \n           string(pipeline().parameters.batch_id)),\n\tif(\n\t\tequals(toLower(pipeline().parameters.reload_flag), 'yes'),\n    concat('SELECT * FROM fwk_meta.GetMetadataDetails(', \n           string(pipeline().parameters.ModuleID), \n           ') WHERE source_object IN (', \n           string(pipeline().parameters.reload_tables), \n           ')'),\n\t\t   'Invalid reload_flag value'\n\t)\n)",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_sap_src_meta_sqldb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "sql_server_url": {
+                                "value": "@pipeline().globalParameters.sql_server_url",
+                                "type": "Expression"
+                            },
+                            "database_name": {
+                                "value": "@pipeline().globalParameters.sql_server_database_name",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach1",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "InsertModuleAuditLog",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [
+                    {
+                        "name": "module_audit_id",
+                        "value": "@string(activity('InsertModuleAuditLog').output.value[0].module_audit_id)"
+                    }
+                ],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('GetMetadataDetails').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": false,
+                    "batchCount": 50,
+                    "activities": [
+                        {
+                            "name": "copy_src_to_landing",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "LkpSapTable",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [
+                                {
+                                    "name": "Destination",
+                                    "value": "@{item().data_layer}/@{concat(json(item().source_property).path,'/',item().source_object)}/@{concat(item().source_object,'_',formatDateTime(utcNow(),'yyyyMMddHHmmss'), '.parquet')}"
+                                },
+                                {
+                                    "name": "source_object",
+                                    "value": "@item().source_object"
+                                }
+                            ],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SapHanaSource",
+                                    "additionalColumns": [
+                                        {
+                                            "name": "data_source",
+                                            "value": {
+                                                "value": "@item().data_source",
+                                                "type": "Expression"
+                                            }
+                                        },
+                                        {
+                                            "name": "extracted_timestamp",
+                                            "value": {
+                                                "value": "@utcNow()",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    ],
+                                    "query": {
+                                        "value": "@{\n    if(\n        contains(json(item().source_property).query, '{watermark_value}'),\n        replace(\n            replace(\n                json(item().source_property).query,\n                '{watermark_value}',\n                concat('''', item().watermark_value, '''')\n            ),\n            '{max_timestamp}',\n            concat('''', activity('LkpSapTable').output.firstRow.updated_time, '''')\n        ),\n        json(item().source_property).query\n    )\n}\n",
+                                        "type": "Expression"
+                                    },
+                                    "partitionOption": "None"
+                                },
+                                "sink": {
+                                    "type": "ParquetSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false,
+                                "translator": {
+                                    "type": "TabularTranslator",
+                                    "typeConversion": true,
+                                    "typeConversionSettings": {
+                                        "allowDataTruncation": true,
+                                        "treatBooleanAsNumber": false
+                                    }
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "ds_sap_src_sap_hana",
+                                    "type": "DatasetReference"
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "ds_sap_dest_adls_parquet",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "storage_account_url": "@json(activity('GetMetadataDetails').output.value[0].target_connection_details)['storage_account_url']",
+                                        "container_name": {
+                                            "value": "@json(item().target_property).container_name",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@concat(json(item().source_property).filename,'_',formatDateTime(utcNow(),'yyyyMMddHHmmss'), '.parquet')",
+                                            "type": "Expression"
+                                        },
+                                        "folder_name": {
+                                            "value": "@json(item().target_property).path",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "InsertTaskAuditLog",
+                            "type": "Lookup",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "AzureSqlSource",
+                                    "sqlReaderStoredProcedureName": "[fwk_meta].[InsertTaskAuditLog]",
+                                    "storedProcedureParameters": {
+                                        "app_id": {
+                                            "type": "Int32",
+                                            "value": {
+                                                "value": "@item().appid",
+                                                "type": "Expression"
+                                            }
+                                        },
+                                        "data_layer": {
+                                            "type": "String",
+                                            "value": {
+                                                "value": "@item().data_layer",
+                                                "type": "Expression"
+                                            }
+                                        },
+                                        "module_audit_id": {
+                                            "type": "Int32",
+                                            "value": {
+                                                "value": "@activity('InsertModuleAuditLog').output.value[0].module_audit_id",
+                                                "type": "Expression"
+                                            }
+                                        },
+                                        "start_time": {
+                                            "type": "DateTime",
+                                            "value": {
+                                                "value": "@utcnow()",
+                                                "type": "Expression"
+                                            }
+                                        },
+                                        "task_id": {
+                                            "type": "Int32",
+                                            "value": {
+                                                "value": "@item().taskid",
+                                                "type": "Expression"
+                                            }
+                                        }
+                                    },
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "dataset": {
+                                    "referenceName": "ds_sap_src_meta_sqldb",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "sql_server_url": {
+                                            "value": "@pipeline().globalParameters.sql_server_url",
+                                            "type": "Expression"
+                                        },
+                                        "database_name": {
+                                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "UpdateTaskAuditLog_Success",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy_src_to_landing",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[fwk_meta].[UpdateTaskAuditLog]",
+                                "storedProcedureParameters": {
+                                    "end_time": {
+                                        "value": {
+                                            "value": "@utcnow()",
+                                            "type": "Expression"
+                                        },
+                                        "type": "DateTime"
+                                    },
+                                    "ErrorCode": {
+                                        "value": "null",
+                                        "type": "String"
+                                    },
+                                    "ErrorDesc": {
+                                        "value": "null",
+                                        "type": "String"
+                                    },
+                                    "rows_deleted": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "rows_inserted": {
+                                        "value": {
+                                            "value": "@activity('copy_src_to_landing').output.rowscopied",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "rows_updated": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "status": {
+                                        "value": {
+                                            "value": "success",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "task_audit_id": {
+                                        "value": {
+                                            "value": "@activity('InsertTaskAuditLog').output.firstRow.task_audit_id",
+                                            "type": "Expression"
+                                        },
+                                        "type": "Int32"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "ls_azsql_hp0",
+                                "type": "LinkedServiceReference",
+                                "parameters": {
+                                    "sql_server_url": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_url']",
+                                    "database_name": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_database_name']"
+                                }
+                            }
+                        },
+                        {
+                            "name": "UpdateTaskAuditLog_Failure",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy_src_to_landing",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[fwk_meta].[UpdateTaskAuditLog]",
+                                "storedProcedureParameters": {
+                                    "end_time": {
+                                        "value": {
+                                            "value": "@utcnow()",
+                                            "type": "Expression"
+                                        },
+                                        "type": "DateTime"
+                                    },
+                                    "ErrorCode": {
+                                        "value": {
+                                            "value": "@activity('copy_src_to_landing').output.errors[0].Code",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "ErrorDesc": {
+                                        "value": {
+                                            "value": "@activity('copy_src_to_landing').output.errors[0].message",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "rows_deleted": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "rows_inserted": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "rows_updated": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "status": {
+                                        "value": {
+                                            "value": "failed",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "task_audit_id": {
+                                        "value": {
+                                            "value": "@activity('InsertTaskAuditLog').output.firstRow.task_audit_id",
+                                            "type": "Expression"
+                                        },
+                                        "type": "Int32"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "ls_azsql_hp0",
+                                "type": "LinkedServiceReference",
+                                "parameters": {
+                                    "sql_server_url": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_url']",
+                                    "database_name": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_database_name']"
+                                }
+                            }
+                        },
+                        {
+                            "name": "watermark_update",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy_src_to_landing",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[fwk_meta].[UpdateWatermarkTable]",
+                                "storedProcedureParameters": {
+                                    "load_type": {
+                                        "value": {
+                                            "value": "@item().load_type",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "watermark_value": {
+                                        "value": {
+                                            "value": "@activity('LkpSapTable').output.firstRow.updated_time",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "taskid": {
+                                        "value": {
+                                            "value": "@item().taskid",
+                                            "type": "Expression"
+                                        },
+                                        "type": "Int32"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "ls_azsql_hp0",
+                                "type": "LinkedServiceReference",
+                                "parameters": {
+                                    "sql_server_url": {
+                                        "value": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_url']",
+                                        "type": "Expression"
+                                    },
+                                    "database_name": {
+                                        "value": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_database_name']",
+                                        "type": "Expression"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "LkpSapTable",
+                            "type": "Lookup",
+                            "dependsOn": [
+                                {
+                                    "activity": "InsertTaskAuditLog",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "SapHanaSource",
+                                    "query": {
+                                        "value": "@json(item().source_property).watermark_query",
+                                        "type": "Expression"
+                                    },
+                                    "partitionOption": "None"
+                                },
+                                "dataset": {
+                                    "referenceName": "ds_sap_src_sap_hana",
+                                    "type": "DatasetReference"
+                                }
+                            }
+                        },
+                        {
+                            "name": "UpdateTaskAuditLog_Lkp_Failure",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "LkpSapTable",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[fwk_meta].[UpdateTaskAuditLog]",
+                                "storedProcedureParameters": {
+                                    "end_time": {
+                                        "value": {
+                                            "value": "@utcnow()",
+                                            "type": "Expression"
+                                        },
+                                        "type": "DateTime"
+                                    },
+                                    "ErrorCode": {
+                                        "value": {
+                                            "value": "@activity('LkpSapTable').output.errors[0].Code",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "ErrorDesc": {
+                                        "value": {
+                                            "value": "@activity('LkpSapTable').output.errors[0].message",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "rows_deleted": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "rows_inserted": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "rows_updated": {
+                                        "value": "0",
+                                        "type": "String"
+                                    },
+                                    "status": {
+                                        "value": {
+                                            "value": "failed",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "task_audit_id": {
+                                        "value": {
+                                            "value": "@activity('InsertTaskAuditLog').output.firstRow.task_audit_id",
+                                            "type": "Expression"
+                                        },
+                                        "type": "Int32"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "ls_azsql_hp0",
+                                "type": "LinkedServiceReference",
+                                "parameters": {
+                                    "sql_server_url": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_url']",
+                                    "database_name": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_database_name']"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "InsertModuleAuditLog",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "GetMetadataDetails",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderStoredProcedureName": "[fwk_meta].[InsertModuleAuditLog]",
+                        "storedProcedureParameters": {
+                            "data_layer": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@activity('GetMetadataDetails').output.value[0].data_layer",
+                                    "type": "Expression"
+                                }
+                            },
+                            "invalid_tables": {
+                                "type": "Int32",
+                                "value": "0"
+                            },
+                            "moduleid": {
+                                "type": "Int32",
+                                "value": {
+                                    "value": "@activity('GetMetadataDetails').output.value[0].moduleid\n",
+                                    "type": "Expression"
+                                }
+                            },
+                            "pipelineurl": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                    "type": "Expression"
+                                }
+                            },
+                            "reload_flag": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.reload_flag",
+                                    "type": "Expression"
+                                }
+                            },
+                            "reload_tables": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.reload_tables",
+                                    "type": "Expression"
+                                }
+                            },
+                            "start_time": {
+                                "type": "DateTime",
+                                "value": {
+                                    "value": "@utcNow()",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_sap_src_meta_sqldb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "sql_server_url": {
+                                "value": "@pipeline().globalParameters.sql_server_url",
+                                "type": "Expression"
+                            },
+                            "database_name": {
+                                "value": "@pipeline().globalParameters.sql_server_database_name",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "UpdateModuleAuditLog_Success",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach1",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[UpdateModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "end_time": {
+                            "value": {
+                                "value": "@utcnow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "ErrorCode": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "ErrorDesc": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "module_audit_id": {
+                            "value": {
+                                "value": "@activity('InsertModuleAuditLog').output.value[0].module_audit_id",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "status": {
+                            "value": "success",
+                            "type": "String"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_url']",
+                        "database_name": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_database_name']"
+                    }
+                }
+            },
+            {
+                "name": "UpdateModuleAuditLog_Failure",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach1",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[UpdateModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "end_time": {
+                            "value": {
+                                "value": "@utcnow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        },
+                        "ErrorCode": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "ErrorDesc": {
+                            "value": "null",
+                            "type": "String"
+                        },
+                        "module_audit_id": {
+                            "value": {
+                                "value": "@activity('InsertModuleAuditLog').output.value[0].module_audit_id",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "status": {
+                            "value": "failed",
+                            "type": "String"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_url']",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@json(activity('GetMetadataDetails').output.value[0].source_connection_details)['sql_server_database_name']",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "InsertModuleAuditLogFailure",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "GetMetadataDetails",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[InsertModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "data_layer": {
+                            "value": "landing",
+                            "type": "String"
+                        },
+                        "invalid_tables": {
+                            "value": "1",
+                            "type": "Int32"
+                        },
+                        "moduleid": {
+                            "value": {
+                                "value": "@pipeline().parameters.ModuleID",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "start_time": {
+                            "value": {
+                                "value": "@utcNow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@pipeline().globalParameters.sql_server_url",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "InsertModuleAuditLogFailure1",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "InsertModuleAuditLog",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[fwk_meta].[InsertModuleAuditLog]",
+                    "storedProcedureParameters": {
+                        "data_layer": {
+                            "value": "landing",
+                            "type": "String"
+                        },
+                        "invalid_tables": {
+                            "value": "1",
+                            "type": "Int32"
+                        },
+                        "moduleid": {
+                            "value": {
+                                "value": "@pipeline().parameters.ModuleID",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        },
+                        "pipelineurl": {
+                            "value": {
+                                "value": "@concat('https://adf.azure.com/en/monitoring/pipelineruns/', \n        pipeline().RunId, \n        '?factory=%2Fsubscriptions%2F', \n        pipeline().globalParameters.subscription_id,'%2FresourceGroups%2F', \n        pipeline().globalParameters.resource_group,'%2Fproviders%2FMicrosoft.DataFactory%2Ffactories%2F', \n        pipeline().DataFactory)",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_flag": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_flag",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "reload_tables": {
+                            "value": {
+                                "value": "@pipeline().parameters.reload_tables",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "start_time": {
+                            "value": {
+                                "value": "@utcNow()",
+                                "type": "Expression"
+                            },
+                            "type": "DateTime"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "ls_azsql_hp0",
+                    "type": "LinkedServiceReference",
+                    "parameters": {
+                        "sql_server_url": {
+                            "value": "@pipeline().globalParameters.sql_server_url",
+                            "type": "Expression"
+                        },
+                        "database_name": {
+                            "value": "@pipeline().globalParameters.sql_server_database_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "ModuleID": {
+                "type": "int",
+                "defaultValue": 1
+            },
+            "batch_id": {
+                "type": "int",
+                "defaultValue": 1
+            },
+            "reload_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "reload_flag": {
+                "type": "string",
+                "defaultValue": "no"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake/data_ingestion"
+        },
+        "annotations": [
+            "landing"
+        ],
+        "lastPublishTime": "2024-08-26T08:26:15Z"
+    }
+}
