@@ -1,0 +1,237 @@
+{
+    "name": "pl_master_pipeline_adf",
+    "properties": {
+        "activities": [
+            {
+                "name": "ProjectLookup",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderQuery": {
+                            "value": "@if(\n    equals(toLower(pipeline().parameters.data_layer),'all'),\n    concat('SELECT * FROM fwk_meta.GetProjectMetadataDetails(', \n           string(pipeline().globalParameters.ProjectID), \n           ') ORDER BY priority'),\n    concat('SELECT * FROM fwk_meta.GetProjectMetadataDetails(', \n           string(pipeline().globalParameters.ProjectID), \n           ') WHERE data_layer = ', \n           string(pipeline().parameters.data_layer),' ORDER BY priority'\n    )\n)\n",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_sap_src_meta_sqldb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "sql_server_url": {
+                                "value": "@pipeline().globalParameters.sql_server_url",
+                                "type": "Expression"
+                            },
+                            "database_name": {
+                                "value": "@pipeline().globalParameters.sql_server_database_name",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEachDataLayer",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "ProjectLookup",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('ProjectLookup').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "Data_Layer",
+                            "type": "Switch",
+                            "dependsOn": [],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "on": {
+                                    "value": "@item().data_layer",
+                                    "type": "Expression"
+                                },
+                                "cases": [
+                                    {
+                                        "value": "landing",
+                                        "activities": [
+                                            {
+                                                "name": "pl_master_src_to_landing",
+                                                "type": "ExecutePipeline",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "pipeline": {
+                                                        "referenceName": "pl_parent_source_to_landing",
+                                                        "type": "PipelineReference"
+                                                    },
+                                                    "waitOnCompletion": true,
+                                                    "parameters": {
+                                                        "moduleid": "1",
+                                                        "reload_tables": {
+                                                            "value": "@pipeline().parameters.reload_tables",
+                                                            "type": "Expression"
+                                                        },
+                                                        "reload_flag": {
+                                                            "value": "@pipeline().parameters.reload_flag",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "raw",
+                                        "activities": [
+                                            {
+                                                "name": "pl_master_landing_to_bronze",
+                                                "type": "ExecutePipeline",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "pipeline": {
+                                                        "referenceName": "pl_child_landing_to_bronze",
+                                                        "type": "PipelineReference"
+                                                    },
+                                                    "waitOnCompletion": true,
+                                                    "parameters": {
+                                                        "ModuleID": {
+                                                            "value": "2",
+                                                            "type": "Expression"
+                                                        },
+                                                        "reload_tables": {
+                                                            "value": "@pipeline().parameters.reload_tables",
+                                                            "type": "Expression"
+                                                        },
+                                                        "reload_flag": {
+                                                            "value": "@pipeline().parameters.reload_flag",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "silver",
+                                        "activities": [
+                                            {
+                                                "name": "pl_master_bronze_to_silver",
+                                                "type": "ExecutePipeline",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "pipeline": {
+                                                        "referenceName": "pl_child_bronze_to_silver",
+                                                        "type": "PipelineReference"
+                                                    },
+                                                    "waitOnCompletion": true,
+                                                    "parameters": {
+                                                        "ModuleID": {
+                                                            "value": "3",
+                                                            "type": "Expression"
+                                                        },
+                                                        "reload_tables": {
+                                                            "value": "@pipeline().parameters.reload_tables",
+                                                            "type": "Expression"
+                                                        },
+                                                        "reload_flag": {
+                                                            "value": "@pipeline().parameters.reload_flag",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "gold_platinum",
+                                        "activities": [
+                                            {
+                                                "name": "pl_master_gold_platinum",
+                                                "type": "ExecutePipeline",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "pipeline": {
+                                                        "referenceName": "pl_child_gold_platinum",
+                                                        "type": "PipelineReference"
+                                                    },
+                                                    "waitOnCompletion": true,
+                                                    "parameters": {
+                                                        "gold_include_tables": "no",
+                                                        "platinum_include_tables": "no",
+                                                        "reload_flag": {
+                                                            "value": "@pipeline().parameters.reload_flag",
+                                                            "type": "Expression"
+                                                        },
+                                                        "reload_tables": {
+                                                            "value": "@pipeline().parameters.reload_tables",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "concurrency": 1,
+        "parameters": {
+            "data_layer": {
+                "type": "string",
+                "defaultValue": "all"
+            },
+            "reload_tables": {
+                "type": "string",
+                "defaultValue": "no"
+            },
+            "reload_flag": {
+                "type": "string",
+                "defaultValue": "no"
+            }
+        },
+        "folder": {
+            "name": "cotybrdatalake/data_ingestion"
+        },
+        "annotations": [],
+        "lastPublishTime": "2024-08-21T10:56:29Z"
+    }
+}
