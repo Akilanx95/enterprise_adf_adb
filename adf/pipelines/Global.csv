@@ -1,0 +1,6 @@
+Name,Type,Value
+sql_server_url,String,usmsantdb055p.database.windows.net
+sql_server_database_name,String,SCM_CT_Dev_sql_01
+ProjectID,Int,1
+subscription_id,String,a8a108f9-594a-4b3e-8d8e-241443d1b2d7
+resource_group,String,rg_coty_brazil-eus2
