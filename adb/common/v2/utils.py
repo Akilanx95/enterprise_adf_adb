@@ -4,8 +4,6 @@
 # MAGIC | **Authors**                             | **Last Updated On** | **Last Updated By**         | 
 # MAGIC |-----------------------------------------|----------------------|-----------------------------|
 # MAGIC | *akilan_venkatesantgr@cotyinc.com*      | 2024-10-29         | Akilan V               |
-# MAGIC | *akshay_kudale-tgr@cotyinc.com*         |                      |                    |
-# MAGIC | *somanath_sankarantgr@cotyinc.com*      |                      |                |
 # MAGIC
 # MAGIC ## Overview
 # MAGIC
