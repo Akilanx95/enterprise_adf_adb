@@ -3,7 +3,7 @@
 # MAGIC
 # MAGIC | **Authors**                             | **Last Updated On** | **Last Updated By**         | 
 # MAGIC |-----------------------------------------|----------------------|-----------------------------|
-# MAGIC | *akilan_venkatesantgr@cotyinc.com*      | 2024-10-29         | Akilan V               |
+# MAGIC | *akilan*                                | 2024-10-29         | Akilan V               |
 # MAGIC
 # MAGIC ## Overview
 # MAGIC
